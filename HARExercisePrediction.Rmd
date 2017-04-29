@@ -3,7 +3,7 @@ title: "HAR Exercise Prediction"
 output: html_document
 ---
 
-```{r echo = FALSE}
+```{r message=FALSE,echo = FALSE}
 library(caret)
 library(ggplot2)
 set.seed(78372843)
@@ -17,9 +17,7 @@ For this project we will use the HAR dataset (http://groupware.les.inf.puc-rio.b
 We first clean up the data by removing rows invalid values (NA or "#DIV/0!"). We also remove columns that can't be used as predictors.
  
 ```{r pressure, echo=FALSE}
-har_training_raw <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
-
-har_testing_raw <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+har_raw <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
 
 prepare_data <- function(data) {
   non_na_index <- which(colSums(is.na(data)) == 0)
@@ -29,10 +27,10 @@ prepare_data <- function(data) {
   df[,-(1:7)]
 }
 
-har <- prepare_data(har_training_raw)
+har <- prepare_data(har_raw)
 ```
 
-We sub-divide the training set into a training and a probing set. The probing set will be used to perform cross validation.
+We sub-divide the data into a training and a probing set. The probing set will be used to perform cross validation.
 
 ```{r}
 inTrain <- createDataPartition(y = har$classe, p = 0.75, list = FALSE)
@@ -55,16 +53,15 @@ ggplot(training, aes(x = classe, y = pitch_arm, fill = classe)) + geom_boxplot()
 
 # Model Selction
 
-We fit 4 models on the training set (descision tree, random forest, linear discriminant analysis and naive bayes).
+We fit 3 different models on the training set (descision tree, random forest and linear discriminant analysis). Each model uses all the variables retained in training set to try to predict the value of the classe variable. We will select the model with the best accuracy.
 
-```{r cache=TRUE, echo = FALSE}
+```{r cache=TRUE, message=FALSE}
 modelRpart <- train(classe ~ ., training, method = "rpart")
 modelRF <- train(classe ~ ., training, method = "rf")
 modelLDA <- train(classe ~ ., training, method = "lda")
-modelNB <- train(classe ~ ., training, method = "nb")
 ```
 
-We test each model on the probing set. The most accurate model seems to be the one using random forest with an accuracy of 99.27%
+We test each model on the probing set. The most accurate model seems to be the one using random forest with an accuracy of 99.27%. This is therefore the model we are going to use.
 
 ```{r}
 cmRpart <- confusionMatrix(predict(modelRpart, probing), probing$classe)
@@ -76,8 +73,6 @@ cmRF$overall[["Accuracy"]]
 cmLDA <- confusionMatrix(predict(modelLDA, probing), probing$classe)
 cmLDA$overall[["Accuracy"]]
 
-cmNB <- confusionMatrix(predict(modelNB, probing), probing$classe)
-cmNB$overall[["Accuracy"]]
 ```
 
 The out of sample error for that model is 0.73%
