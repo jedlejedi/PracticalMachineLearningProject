@@ -1,0 +1,89 @@
+---
+title: "HAR Exercise Prediction"
+output: html_document
+---
+
+```{r echo = FALSE}
+library(caret)
+library(ggplot2)
+set.seed(78372843)
+```
+
+## Summary
+For this project we will use the HAR dataset (http://groupware.les.inf.puc-rio.br/har) to attempt to predict how well an exercise is performed based an various measures taken by captors placed on the subjects body. 
+
+
+## Data Clean Up and Preparation
+We first clean up the data by removing rows invalid values (NA or "#DIV/0!"). We also remove columns that can't be used as predictors.
+ 
+```{r pressure, echo=FALSE}
+har_training_raw <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+
+har_testing_raw <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+
+prepare_data <- function(data) {
+  non_na_index <- which(colSums(is.na(data)) == 0)
+  df <- data[,non_na_index]
+  non_div0_index <- which(colSums(df == "#DIV/0!") == 0)
+  df <- df[,non_div0_index]
+  df[,-(1:7)]
+}
+
+har <- prepare_data(har_training_raw)
+```
+
+We sub-divide the training set into a training and a probing set. The probing set will be used to perform cross validation.
+
+```{r}
+inTrain <- createDataPartition(y = har$classe, p = 0.75, list = FALSE)
+
+training <- har[inTrain,]
+probing <- har[-inTrain,]
+```
+
+
+# Exploratory Analysis
+
+We plot a couple of charts to get a feel for whether there are any predictors that can be used to determine whether the exercise is done well
+
+```{r}
+ggplot(training, aes(x = classe, y = pitch_forearm, fill = classe)) + geom_boxplot()
+
+ggplot(training, aes(x = classe, y = pitch_arm, fill = classe)) + geom_boxplot()
+```
+
+
+# Model Selction
+
+We fit 4 models on the training set (descision tree, random forest, linear discriminant analysis and naive bayes).
+
+```{r cache=TRUE, echo = FALSE}
+modelRpart <- train(classe ~ ., training, method = "rpart")
+modelRF <- train(classe ~ ., training, method = "rf")
+modelLDA <- train(classe ~ ., training, method = "lda")
+modelNB <- train(classe ~ ., training, method = "nb")
+```
+
+We test each model on the probing set. The most accurate model seems to be the one using random forest with an accuracy of 99.27%
+
+```{r}
+cmRpart <- confusionMatrix(predict(modelRpart, probing), probing$classe)
+cmRpart$overall[["Accuracy"]]
+
+cmRF <- confusionMatrix(predict(modelRF, probing), probing$classe)
+cmRF$overall[["Accuracy"]]
+
+cmLDA <- confusionMatrix(predict(modelLDA, probing), probing$classe)
+cmLDA$overall[["Accuracy"]]
+
+cmNB <- confusionMatrix(predict(modelNB, probing), probing$classe)
+cmNB$overall[["Accuracy"]]
+```
+
+The out of sample error for that model is 0.73%
+```{r}
+cm <- confusionMatrix(predict(modelRF, probing), probing$classe)
+oose <- 1 - cm$overall[["Accuracy"]]
+oose
+```
+
